@@ -3,40 +3,52 @@ package example;
 import org.junit.Rule;
 import org.junit.Test;
 
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Result;
+import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.v1.GraphDatabase;
+import org.neo4j.driver.v1.ResultCursor;
+import org.neo4j.driver.v1.Session;
 import org.neo4j.harness.junit.Neo4jRule;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.neo4j.helpers.collection.MapUtil.map;
+import static org.neo4j.bolt.BoltKernelExtension.Settings.connector;
+import static org.neo4j.bolt.BoltKernelExtension.Settings.enabled;
+import static org.neo4j.driver.v1.Values.parameters;
 
 public class LegacyFullTextIndexTest
 {
+    // This rule starts a Neo4j instance for us
     @Rule
-    public Neo4jRule neo4j = (Neo4jRule)new Neo4jRule() // TODO: temp cast pending PR
-            .withProcedure( FullTextIndex.class );
+    public Neo4jRule neo4j = new Neo4jRule()
+
+            // This is the Procedure we want to test
+            .withProcedure( FullTextIndex.class )
+
+            // Temporary until Neo4jRule includes Bolt by default
+            .withConfig( connector( 0, enabled ), "true" );
 
     @Test
     public void shouldAllowIndexingAndFindingANode() throws Throwable
     {
-        // Given I've started Neo4j with the FullTextIndex procedure class
-        //       which my 'neo4j' rule above does.
-        GraphDatabaseService db = neo4j.getGraphDatabaseService();
+        // In a try-block, to make sure we close the driver after the test
+        try( Driver driver = GraphDatabase.driver( "bolt://localhost" ) )
+        {
 
-        // And given I have a node in the database
-        long nodeId = (long)db
-                    .execute( "CREATE (p:User {name:'Steven Brookreson'}) RETURN id(p)" )
-                    .columnAs( "id(p)" )
-                    .next();
+            // Given I've started Neo4j with the FullTextIndex procedure class
+            //       which my 'neo4j' rule above does.
+            Session session = driver.session();
 
-        // When I use the index procedure to index a node
-        db.execute( "CALL example.index({id}, ['name'])", map( "id", nodeId ) )
-                .hasNext(); // TODO temp until eagerization
+            // And given I have a node in the database
+            long nodeId = session.run( "CREATE (p:User {name:'Brookreson'}) RETURN id(p)" )
+                    .single()
+                    .get( 0 ).asLong();
 
-        // Then I can search for that node with fuzzy keywords
-        Result id = db.execute( "CALL example.search('User', 'name:Brook*')", map( "id", nodeId ) );
+            // When I use the index procedure to index a node
+            session.run( "CALL example.index({id}, ['name'])", parameters( "id", nodeId ) );
 
-        assertThat( id.stream().count(), equalTo( 1l ));
+            // Then I can search for that node with lucene query syntax
+            ResultCursor result = session.run( "CALL example.search('User', 'name:Brook*')" );
+            assertThat( result.single().get( "nodeId" ).asLong(), equalTo( nodeId ) );
+        }
     }
 }
