@@ -17,11 +17,7 @@ public class LegacyFullTextIndexTest
     public Neo4jRule neo4j = new Neo4jRule()
 
             // This is the Procedure we want to test
-            .withProcedure( FullTextIndex.class )
-
-            // Temporary until Neo4jRule includes Bolt by default
-            .withConfig(GraphDatabaseSettings.boltConnector("0").enabled, "TRUE" )
-            .withConfig(GraphDatabaseSettings.boltConnector("0").encryption_level, "OPTIONAL" );
+            .withProcedure( FullTextIndex.class );
 
     @Test
     public void shouldAllowIndexingAndFindingANode() throws Throwable
