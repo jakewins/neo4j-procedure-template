@@ -73,7 +73,7 @@ public class FullTextIndex
      *              documentation for full available syntax.
      * @return the nodes found by the query
      */
-    @Procedure
+    @Procedure("example.search")
     @PerformsWrites // TODO: This is here as a workaround, because index().forNodes() is not read-only
     public Stream<SearchHit> search( @Name("label") String label,
                                      @Name("query") String query )
@@ -116,7 +116,7 @@ public class FullTextIndex
      * @param propKeys a list of property keys to index, only the ones the node
      *                 actually contains will be added
      */
-    @Procedure
+    @Procedure("example.index")
     @PerformsWrites
     public void index( @Name("nodeId") long nodeId,
                        @Name("properties") List<String> propKeys )
